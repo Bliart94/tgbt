@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+*.pem
+*.key
+
+# Terraform
+terraform-labs-tbgt/
+.terraform/
+*.tfstate
+*.tfstate.*

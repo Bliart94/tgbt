@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>TBGT Records</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="nav">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>TBGT Records</h1>
+          <p>Magasin de disques • connecté à PostgreSQL</p>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn" href="/docs">API</a>
+        <a class="btn primary" href="/admin">Admin</a>
+      </div>
+    </div>
+
+    <div class="hero">
+      <h2>Articles disponibles</h2>
+      <p>Liste générée depuis ta base SQL (table articles).</p>
+	<form method="get" action="/" style="margin-top: 12px; display:flex; gap:10px; align-items:center;">
+  <input
+    type="text"
+    name="q"
+    placeholder="Rechercher un disque (artiste, album...)"
+    value="{{ q }}"
+    style="flex:1;"
+  />
+  <button class="btn primary" type="submit">Rechercher</button>
+  {% if q %}
+    <a class="btn" href="/">Réinitialiser</a>
+  {% endif %}
+	</form>
+    </div>
+
+    <div class="grid">
+      {% for a in articles %}
+        <a class="card" href="/article/{{ a.id }}">
+          <h3>{{ a.name }}</h3>
+          <div class="meta">
+            <span class="badge">ID {{ a.id }}</span>
+            <span>Stock: <strong>{{ a.stock }}</strong></span>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+
+    <div class="footer">© TBGT Records — Local API + PostgreSQL</div>
+  </div>
+</body>
+</html>

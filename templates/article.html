@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ article.name }} • TBGT Records</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="nav">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>TBGT Records</h1>
+          <p>Détail article</p>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn" href="/">Accueil</a>
+        <a class="btn" href="/admin">Admin</a>
+        <a class="btn" href="/docs">API</a>
+      </div>
+    </div>
+
+    <div class="hero">
+      <h2>{{ article.name }}</h2>
+      <p>
+        Stock disponible :
+        <strong>{{ article.stock }}</strong>
+      </p>
+    </div>
+
+    <div class="form">
+      <h3>Commander</h3>
+
+      <form method="post" action="/buy/{{ article.id }}">
+        <div class="field">
+          <label>Email</label>
+          <input type="email" name="email" required placeholder="client@email.com">
+        </div>
+
+        <button
+          class="btn primary"
+          type="submit"
+          {% if article.stock <= 0 %}disabled{% endif %}
+        >
+          {% if article.stock > 0 %}
+            Commander (stock -1)
+          {% else %}
+            Rupture de stock
+          {% endif %}
+        </button>
+      </form>
+    </div>
+
+    <div class="footer">
+      <a href="/">← Retour à la liste</a>
+    </div>
+  </div>
+</body>
+</html>
+

@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Admin • TBGT Records</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="nav">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>TBGT Records</h1>
+          <p>Administration</p>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn" href="/">Accueil</a>
+        <a class="btn" href="/docs">API</a>
+      </div>
+    </div>
+
+    <div class="form">
+      <h3>Ajouter un produit</h3>
+      <form method="post" action="/admin/create">
+        <div class="field">
+          <label>Nom</label>
+          <input type="text" name="name" required placeholder="Artiste - Album">
+        </div>
+
+        <div class="field">
+          <label>Stock</label>
+          <input type="number" name="stock" min="0" value="1" required>
+        </div>
+
+        <div class="field">
+          <label>Mot de passe admin</label>
+          <input type="password" name="admin_pass" required>
+        </div>
+
+        <button class="btn primary" type="submit">Ajouter</button>
+      </form>
+
+      {% if message %}
+        <p style="color: var(--muted); margin-top: 10px;">{{ message }}</p>
+      {% endif %}
+    </div>
+
+    <div class="footer">Astuce : ajoute, puis vérifie dans l’accueil.</div>
+  </div>
+</body>
+</html>
