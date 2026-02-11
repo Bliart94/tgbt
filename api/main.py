@@ -1,16 +1,18 @@
 from pathlib import Path
+from typing import List, Optional
+
 from fastapi import FastAPI, HTTPException, Depends, Request, Form
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field
-from .mail import send_order_mail
 
 import secrets
 
 from .settings import settings
 from .db import get_conn, init_db
+from .mail import send_order_mail
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 
@@ -25,14 +27,17 @@ class ArticleCreate(BaseModel):
     name: str = Field(min_length=1)
     stock: int = Field(ge=0)
 
+
 class ArticleOut(BaseModel):
     id: int
     name: str
     stock: int
 
+
 class OrderCreate(BaseModel):
     article_id: int
     email: EmailStr
+
 
 class OrderOut(BaseModel):
     id: int
@@ -50,7 +55,7 @@ def require_admin(creds: HTTPBasicCredentials = Depends(security)):
 
 
 @app.on_event("startup")
-def _startup():
+def startup():
     init_db()
 
 
@@ -59,12 +64,12 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/api/articles", response_model=list[ArticleOut])
+@app.get("/api/articles", response_model=List[ArticleOut])
 def api_list_articles():
     schema = settings.db_schema
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute(f"SELECT id, name, stock FROM {schema}.articles ORDER BY id")
+            cur.execute("SELECT id, name, stock FROM {}.articles ORDER BY id".format(schema))
             return cur.fetchall()
 
 
@@ -73,7 +78,7 @@ def api_get_article(article_id: int):
     schema = settings.db_schema
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute(f"SELECT id, name, stock FROM {schema}.articles WHERE id = %s", (article_id,))
+            cur.execute("SELECT id, name, stock FROM {}.articles WHERE id = %s".format(schema), (article_id,))
             row = cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="Article not found")
@@ -86,13 +91,13 @@ def api_create_article(payload: ArticleCreate):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                f"""
+                """
                 INSERT INTO {schema}.articles (name, stock)
                 VALUES (%s, %s)
                 ON CONFLICT (name)
                 DO UPDATE SET stock = {schema}.articles.stock + EXCLUDED.stock
                 RETURNING id, name, stock
-                """,
+                """.format(schema=schema),
                 (payload.name, payload.stock),
             )
             row = cur.fetchone()
@@ -105,7 +110,7 @@ def api_buy_article(payload: OrderCreate):
     schema = settings.db_schema
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute(f"SELECT id, stock FROM {schema}.articles WHERE id=%s", (payload.article_id,))
+            cur.execute("SELECT id, name, stock FROM {}.articles WHERE id=%s".format(schema), (payload.article_id,))
             art = cur.fetchone()
             if not art:
                 raise HTTPException(status_code=404, detail="Article not found")
@@ -113,7 +118,7 @@ def api_buy_article(payload: OrderCreate):
                 raise HTTPException(status_code=400, detail="Out of stock")
 
             cur.execute(
-                f"UPDATE {schema}.articles SET stock = stock - 1 WHERE id=%s AND stock > 0 RETURNING id",
+                "UPDATE {}.articles SET stock = stock - 1 WHERE id=%s AND stock > 0 RETURNING id".format(schema),
                 (payload.article_id,),
             )
             if not cur.fetchone():
@@ -121,44 +126,43 @@ def api_buy_article(payload: OrderCreate):
                 raise HTTPException(status_code=400, detail="Out of stock")
 
             cur.execute(
-                f"""
-                INSERT INTO {schema}.orders (article_id, buyer_email)
-                VALUES (%s, %s)
-                RETURNING id, article_id, buyer_email, created_at
-                """,
+                "INSERT INTO {}.orders (article_id, buyer_email) VALUES (%s, %s) RETURNING id, article_id, buyer_email, created_at".format(schema),
                 (payload.article_id, str(payload.email)),
             )
             order = cur.fetchone()
             conn.commit()
 
     order["created_at"] = str(order["created_at"])
+    try:
+        send_order_mail(order["buyer_email"], art["name"])
+    except Exception:
+        pass
+
     return order
 
 
 @app.get("/", response_class=HTMLResponse)
-def page_home(request: Request, q: str | None = None):
+def page_home(request: Request, q: Optional[str] = None):
     schema = settings.db_schema
     q_clean = (q or "").strip()
+
     with get_conn() as conn:
         with conn.cursor() as cur:
             if q_clean:
                 cur.execute(
-                    f"""
+                    """
                     SELECT id, name, stock
                     FROM {schema}.articles
                     WHERE name ILIKE %s
                     ORDER BY id
-                    """,
-                    (f"%{q_clean}%",),
+                    """.format(schema=schema),
+                    ("%{}%".format(q_clean),),
                 )
             else:
-                cur.execute(f"SELECT id, name, stock FROM {schema}.articles ORDER BY id")
+                cur.execute("SELECT id, name, stock FROM {}.articles ORDER BY id".format(schema))
             articles = cur.fetchall()
 
-    return templates.TemplateResponse(
-        "index.html",
-        {"request": request, "articles": articles, "q": q_clean},
-    )
+    return templates.TemplateResponse("index.html", {"request": request, "articles": articles, "q": q_clean})
 
 
 @app.get("/article/{article_id}", response_class=HTMLResponse)
@@ -166,7 +170,7 @@ def page_article(article_id: int, request: Request):
     schema = settings.db_schema
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute(f"SELECT id, name, stock FROM {schema}.articles WHERE id=%s", (article_id,))
+            cur.execute("SELECT id, name, stock FROM {}.articles WHERE id=%s".format(schema), (article_id,))
             article = cur.fetchone()
 
     if not article:
@@ -180,7 +184,7 @@ def page_buy(article_id: int, email: str = Form(...)):
     schema = settings.db_schema
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute(f"SELECT id, name, stock FROM {schema}.articles WHERE id=%s", (article_id,))
+            cur.execute("SELECT id, name, stock FROM {}.articles WHERE id=%s".format(schema), (article_id,))
             art = cur.fetchone()
             if not art:
                 raise HTTPException(status_code=404, detail="Article not found")
@@ -188,7 +192,7 @@ def page_buy(article_id: int, email: str = Form(...)):
                 raise HTTPException(status_code=400, detail="Out of stock")
 
             cur.execute(
-                f"UPDATE {schema}.articles SET stock = stock - 1 WHERE id=%s AND stock > 0 RETURNING id",
+                "UPDATE {}.articles SET stock = stock - 1 WHERE id=%s AND stock > 0 RETURNING id".format(schema),
                 (article_id,),
             )
             if not cur.fetchone():
@@ -196,16 +200,21 @@ def page_buy(article_id: int, email: str = Form(...)):
                 raise HTTPException(status_code=400, detail="Out of stock")
 
             cur.execute(
-                f"INSERT INTO {schema}.orders (article_id, buyer_email) VALUES (%s, %s)",
+                "INSERT INTO {}.orders (article_id, buyer_email) VALUES (%s, %s)".format(schema),
                 (article_id, email),
             )
             conn.commit()
 
-    send_order_mail(email, art["name"])
-    return RedirectResponse(url=f"/article/{article_id}", status_code=303)
+    try:
+        send_order_mail(email, art["name"])
+    except Exception:
+        pass
+
+    return RedirectResponse(url="/article/{}".format(article_id), status_code=303)
+
 
 @app.get("/admin", response_class=HTMLResponse)
-def page_admin(request: Request, message: str | None = None):
+def page_admin(request: Request, message: Optional[str] = None):
     return templates.TemplateResponse("admin.html", {"request": request, "message": message})
 
 
@@ -218,12 +227,12 @@ def admin_create(name: str = Form(...), stock: int = Form(...), admin_pass: str 
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                f"""
+                """
                 INSERT INTO {schema}.articles (name, stock)
                 VALUES (%s, %s)
                 ON CONFLICT (name)
                 DO UPDATE SET stock = {schema}.articles.stock + EXCLUDED.stock
-                """,
+                """.format(schema=schema),
                 (name, stock),
             )
             conn.commit()

@@ -1,0 +1,13 @@
+﻿jyQyxycidy6a
+
+psql -d tbgt --user eleve -h localhost
+
+mdp : eleve
+
+
+cd ~/Desktop/GT_TB_API
+source .venv/bin/activate
+PYTHONPATH=. python -m uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
+
+apppassword : qtio snmb aemx zcth 
+
